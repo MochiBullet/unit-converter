@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Converter</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #06080c;
+            --bg-card: #0d1117;
+            --border: rgba(255,255,255,0.06);
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --text-dim: #484f58;
+            --primary: #6C9CFF;
+            --accent-purple: #c084fc;
+            --accent-green: #4ade80;
+            --accent-cyan: #22d3ee;
+            --accent-orange: #fb923c;
+            --accent-pink: #f472b6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 16px 40px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 24px 0 16px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header p {
+            color: var(--text-dim);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Input area */
+        .input-area {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(6, 8, 12, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            margin: 0 -16px;
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        .input-row {
+            display: flex;
+            gap: 8px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .input-field {
+            flex: 1;
+            min-width: 0;
+        }
+        .input-field input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-field input:focus { border-color: var(--primary); }
+        .input-field input::placeholder { color: var(--text-dim); font-weight: 400; font-size: 16px; }
+
+        /* Dial selector */
+        .dial-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .dial-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            min-width: 90px;
+            justify-content: center;
+        }
+        .dial-btn:hover { border-color: var(--text-dim); }
+        .dial-btn.open { border-color: var(--primary); background: rgba(108,156,255,0.08); }
+        .dial-arrow {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .dial-btn.open .dial-arrow { transform: rotate(180deg); }
+
+        /* Dropdown */
+        .dial-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            width: 260px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #0d1117;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            z-index: 200;
+            padding: 6px;
+        }
+        .dial-menu.show { display: block; }
+        .dial-menu::-webkit-scrollbar { width: 6px; }
+        .dial-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+        .dial-group-label {
+            padding: 8px 10px 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+        }
+        .dial-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.1s;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .dial-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        .dial-item.active { background: rgba(108,156,255,0.1); color: var(--primary); }
+        .dial-item-symbol {
+            font-family: monospace;
+            font-weight: 600;
+            min-width: 36px;
+            color: var(--text);
+        }
+
+        /* Category tabs */
+        .cat-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 10px 0 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .cat-tabs::-webkit-scrollbar { display: none; }
+        .cat-tab {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 11px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .cat-tab:hover { background: rgba(255,255,255,0.04); color: var(--text-muted); }
+        .cat-tab.active { background: rgba(108,156,255,0.12); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+
+        /* Results table */
+        .results {
+            margin-top: 16px;
+        }
+        .result-group {
+            margin-bottom: 16px;
+        }
+        .result-group-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0 4px 6px;
+        }
+        .result-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .result-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            transition: background 0.1s;
+            cursor: pointer;
+        }
+        .result-row:hover { background: rgba(255,255,255,0.02); }
+        .result-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+        .result-row.source { background: rgba(108,156,255,0.04); }
+        .result-unit {
+            min-width: 70px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .result-value {
+            flex: 1;
+            text-align: right;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .result-value.source-val { color: var(--primary); }
+        .result-symbol {
+            min-width: 44px;
+            text-align: right;
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-left: 8px;
+        }
+
+        /* Copied toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--accent-green);
+            color: #000;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            color: var(--text-dim);
+            font-size: 11px;
+        }
+        .footer a { color: var(--primary); text-decoration: none; }
+
+        .empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Unit Converter</h1>
+            <p>数値を入力すると全単位に一括変換</p>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-row" style="max-width:600px;margin:0 auto;">
+            <div class="input-field">
+                <input type="number" id="numInput" placeholder="数値を入力" inputmode="decimal" step="any">
+            </div>
+            <div class="dial-wrap">
+                <button class="dial-btn" id="dialBtn">
+                    <span id="dialLabel">mm</span>
+                    <span class="dial-arrow">▼</span>
+                </button>
+                <div class="dial-menu" id="dialMenu"></div>
+            </div>
+        </div>
+        <div class="cat-tabs" id="catTabs"></div>
+    </div>
+
+    <div class="container">
+        <div class="results" id="results"></div>
+        <div class="footer">
+            Made by <a href="https://mochi-bullet-magazine.vercel.app/" target="_blank">MochiBullet</a>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // === Unit Database ===
+    // Each category has units. Each unit converts to/from a base unit within that category.
+    // toBase: multiply input by this to get base unit value
+    const categories = {
+        length: {
+            label: '長さ',
+            color: 'var(--primary)',
+            base: 'm',
+            units: [
+                { id: 'nm',   name: 'ナノメートル',   symbol: 'nm',   toBase: 1e-9 },
+                { id: 'um',   name: 'マイクロメートル', symbol: 'μm',  toBase: 1e-6 },
+                { id: 'mm',   name: 'ミリメートル',   symbol: 'mm',   toBase: 0.001 },
+                { id: 'cm',   name: 'センチメートル',  symbol: 'cm',   toBase: 0.01 },
+                { id: 'm',    name: 'メートル',       symbol: 'm',    toBase: 1 },
+                { id: 'km',   name: 'キロメートル',   symbol: 'km',   toBase: 1000 },
+                { id: 'in',   name: 'インチ',         symbol: 'in',   toBase: 0.0254 },
+                { id: 'ft',   name: 'フィート',       symbol: 'ft',   toBase: 0.3048 },
+                { id: 'yd',   name: 'ヤード',         symbol: 'yd',   toBase: 0.9144 },
+                { id: 'mi',   name: 'マイル',         symbol: 'mi',   toBase: 1609.344 },
+                { id: 'nmi',  name: '海里',           symbol: 'nmi',  toBase: 1852 },
+                { id: 'sun',  name: '寸',             symbol: '寸',   toBase: 0.03030303 },
+                { id: 'shaku',name: '尺',             symbol: '尺',   toBase: 0.3030303 },
+                { id: 'ken',  name: '間',             symbol: '間',   toBase: 1.818182 },
+                { id: 'ri',   name: '里',             symbol: '里',   toBase: 3927.273 },
+            ]
+        },
+        weight: {
+            label: '重さ',
+            color: 'var(--accent-green)',
+            base: 'kg',
+            units: [
+                { id: 'ug',   name: 'マイクログラム', symbol: 'μg',   toBase: 1e-9 },
+                { id: 'mg',   name: 'ミリグラム',     symbol: 'mg',   toBase: 1e-6 },
+                { id: 'g',    name: 'グラム',         symbol: 'g',    toBase: 0.001 },
+                { id: 'kg',   name: 'キログラム',     symbol: 'kg',   toBase: 1 },
+                { id: 't',    name: 'トン',           symbol: 't',    toBase: 1000 },
+                { id: 'oz',   name: 'オンス',         symbol: 'oz',   toBase: 0.0283495 },
+                { id: 'lb',   name: 'ポンド',         symbol: 'lb',   toBase: 0.453592 },
+                { id: 'st',   name: 'ストーン',       symbol: 'st',   toBase: 6.35029 },
+                { id: 'ton_us', name: '米トン(ショート)', symbol: 'US ton', toBase: 907.185 },
+                { id: 'ton_uk', name: '英トン(ロング)',   symbol: 'UK ton', toBase: 1016.05 },
+                { id: 'momme', name: '匁',            symbol: '匁',   toBase: 0.00375 },
+                { id: 'kan',   name: '貫',            symbol: '貫',   toBase: 3.75 },
+                { id: 'ct',   name: 'カラット',       symbol: 'ct',   toBase: 0.0002 },
+                { id: 'grain', name: 'グレーン',      symbol: 'gr',   toBase: 0.00006479891 },
+            ]
+        },
+        area: {
+            label: '面積',
+            color: 'var(--accent-purple)',
+            base: 'm2',
+            units: [
+                { id: 'mm2',  name: '平方ミリメートル', symbol: 'mm²', toBase: 1e-6 },
+                { id: 'cm2',  name: '平方センチメートル', symbol: 'cm²', toBase: 1e-4 },
+                { id: 'm2',   name: '平方メートル',   symbol: 'm²',   toBase: 1 },
+                { id: 'a',    name: 'アール',         symbol: 'a',    toBase: 100 },
+                { id: 'ha',   name: 'ヘクタール',     symbol: 'ha',   toBase: 10000 },
+                { id: 'km2',  name: '平方キロメートル', symbol: 'km²', toBase: 1e6 },
+                { id: 'in2',  name: '平方インチ',     symbol: 'in²',  toBase: 0.00064516 },
+                { id: 'ft2',  name: '平方フィート',   symbol: 'ft²',  toBase: 0.092903 },
+                { id: 'yd2',  name: '平方ヤード',     symbol: 'yd²',  toBase: 0.836127 },
+                { id: 'ac',   name: 'エーカー',       symbol: 'ac',   toBase: 4046.86 },
+                { id: 'mi2',  name: '平方マイル',     symbol: 'mi²',  toBase: 2589988 },
+                { id: 'tsubo', name: '坪',            symbol: '坪',   toBase: 3.305785 },
+                { id: 'jo',   name: '畳',             symbol: '畳',   toBase: 1.652893 },
+            ]
+        },
+        volume: {
+            label: '体積',
+            color: 'var(--accent-cyan)',
+            base: 'L',
+            units: [
+                { id: 'mL',   name: 'ミリリットル',   symbol: 'mL',   toBase: 0.001 },
+                { id: 'cL',   name: 'センチリットル', symbol: 'cL',   toBase: 0.01 },
+                { id: 'dL',   name: 'デシリットル',   symbol: 'dL',   toBase: 0.1 },
+                { id: 'L',    name: 'リットル',       symbol: 'L',    toBase: 1 },
+                { id: 'kL',   name: 'キロリットル',   symbol: 'kL',   toBase: 1000 },
+                { id: 'm3',   name: '立方メートル',   symbol: 'm³',   toBase: 1000 },
+                { id: 'cm3',  name: '立方センチメートル', symbol: 'cm³', toBase: 0.001 },
+                { id: 'tsp',  name: 'ティースプーン', symbol: 'tsp',  toBase: 0.00492892 },
+                { id: 'tbsp', name: 'テーブルスプーン', symbol: 'tbsp', toBase: 0.0147868 },
+                { id: 'floz', name: '液量オンス(US)',  symbol: 'fl oz', toBase: 0.0295735 },
+                { id: 'cup',  name: 'カップ(US)',      symbol: 'cup',  toBase: 0.236588 },
+                { id: 'pt',   name: 'パイント(US)',    symbol: 'pt',   toBase: 0.473176 },
+                { id: 'qt',   name: 'クォート(US)',    symbol: 'qt',   toBase: 0.946353 },
+                { id: 'gal',  name: 'ガロン(US)',      symbol: 'gal',  toBase: 3.78541 },
+                { id: 'gal_uk', name: 'ガロン(UK)',    symbol: 'UK gal', toBase: 4.54609 },
+                { id: 'go',   name: '合',             symbol: '合',   toBase: 0.18039 },
+                { id: 'sho',  name: '升',             symbol: '升',   toBase: 1.8039 },
+                { id: 'to',   name: '斗',             symbol: '斗',   toBase: 18.039 },
+            ]
+        },
+        speed: {
+            label: '速度',
+            color: 'var(--accent-orange)',
+            base: 'ms',
+            units: [
+                { id: 'ms',   name: 'メートル毎秒',   symbol: 'm/s',  toBase: 1 },
+                { id: 'kmh',  name: 'キロメートル毎時', symbol: 'km/h', toBase: 0.277778 },
+                { id: 'mph',  name: 'マイル毎時',     symbol: 'mph',  toBase: 0.44704 },
+                { id: 'kt',   name: 'ノット',         symbol: 'kt',   toBase: 0.514444 },
+                { id: 'fps',  name: 'フィート毎秒',   symbol: 'ft/s', toBase: 0.3048 },
+                { id: 'mach', name: 'マッハ',         symbol: 'Mach', toBase: 343 },
+                { id: 'c',    name: '光速',           symbol: 'c',    toBase: 299792458 },
+            ]
+        },
+        temperature: {
+            label: '温度',
+            color: '#f66',
+            base: 'C',
+            units: [
+                { id: 'C',  name: '摂氏',     symbol: '°C',  special: true },
+                { id: 'F',  name: '華氏',     symbol: '°F',  special: true },
+                { id: 'K',  name: 'ケルビン', symbol: 'K',   special: true },
+            ]
+        },
+        pressure: {
+            label: '圧力',
+            color: '#a78bfa',
+            base: 'Pa',
+            units: [
+                { id: 'Pa',   name: 'パスカル',     symbol: 'Pa',   toBase: 1 },
+                { id: 'hPa',  name: 'ヘクトパスカル', symbol: 'hPa', toBase: 100 },
+                { id: 'kPa',  name: 'キロパスカル', symbol: 'kPa',  toBase: 1000 },
+                { id: 'MPa',  name: 'メガパスカル', symbol: 'MPa',  toBase: 1e6 },
+                { id: 'bar',  name: 'バール',       symbol: 'bar',  toBase: 100000 },
+                { id: 'atm',  name: '気圧',         symbol: 'atm',  toBase: 101325 },
+                { id: 'mmHg', name: '水銀柱ミリメートル', symbol: 'mmHg', toBase: 133.322 },
+                { id: 'psi',  name: 'PSI',          symbol: 'psi',  toBase: 6894.76 },
+                { id: 'torr', name: 'トール',       symbol: 'Torr', toBase: 133.322 },
+            ]
+        },
+        time: {
+            label: '時間',
+            color: 'var(--accent-pink)',
+            base: 's',
+            units: [
+                { id: 'ns',   name: 'ナノ秒',   symbol: 'ns',  toBase: 1e-9 },
+                { id: 'us_t', name: 'マイクロ秒', symbol: 'μs', toBase: 1e-6 },
+                { id: 'ms_t', name: 'ミリ秒',   symbol: 'ms',  toBase: 0.001 },
+                { id: 's',    name: '秒',        symbol: 's',   toBase: 1 },
+                { id: 'min',  name: '分',        symbol: 'min', toBase: 60 },
+                { id: 'h',    name: '時間',      symbol: 'h',   toBase: 3600 },
+                { id: 'day',  name: '日',        symbol: '日',  toBase: 86400 },
+                { id: 'week', name: '週',        symbol: '週',  toBase: 604800 },
+                { id: 'month', name: '月(30日)',  symbol: '月',  toBase: 2592000 },
+                { id: 'year', name: '年(365日)',  symbol: '年',  toBase: 31536000 },
+            ]
+        },
+        data: {
+            label: 'データ',
+            color: '#34d399',
+            base: 'B',
+            units: [
+                { id: 'bit',  name: 'ビット',       symbol: 'bit',  toBase: 0.125 },
+                { id: 'B',    name: 'バイト',       symbol: 'B',    toBase: 1 },
+                { id: 'KB',   name: 'キロバイト',   symbol: 'KB',   toBase: 1024 },
+                { id: 'MB',   name: 'メガバイト',   symbol: 'MB',   toBase: 1048576 },
+                { id: 'GB',   name: 'ギガバイト',   symbol: 'GB',   toBase: 1073741824 },
+                { id: 'TB',   name: 'テラバイト',   symbol: 'TB',   toBase: 1099511627776 },
+                { id: 'PB',   name: 'ペタバイト',   symbol: 'PB',   toBase: 1125899906842624 },
+            ]
+        },
+        energy: {
+            label: 'エネルギー',
+            color: '#fbbf24',
+            base: 'J',
+            units: [
+                { id: 'J',    name: 'ジュール',       symbol: 'J',    toBase: 1 },
+                { id: 'kJ',   name: 'キロジュール',   symbol: 'kJ',   toBase: 1000 },
+                { id: 'cal',  name: 'カロリー',       symbol: 'cal',  toBase: 4.184 },
+                { id: 'kcal', name: 'キロカロリー',   symbol: 'kcal', toBase: 4184 },
+                { id: 'Wh',   name: 'ワット時',       symbol: 'Wh',   toBase: 3600 },
+                { id: 'kWh',  name: 'キロワット時',   symbol: 'kWh',  toBase: 3600000 },
+                { id: 'eV',   name: '電子ボルト',     symbol: 'eV',   toBase: 1.602176634e-19 },
+                { id: 'BTU',  name: 'BTU',             symbol: 'BTU',  toBase: 1055.06 },
+            ]
+        },
+    };
+
+    // === State ===
+    let activeCat = 'length';
+    let activeUnit = 'mm';
+
+    // === Temperature conversion (special) ===
+    function tempConvert(value, from, to) {
+        // Convert to Celsius first
+        let c;
+        if (from === 'C') c = value;
+        else if (from === 'F') c = (value - 32) * 5 / 9;
+        else if (from === 'K') c = value - 273.15;
+        // Convert from Celsius to target
+        if (to === 'C') return c;
+        if (to === 'F') return c * 9 / 5 + 32;
+        if (to === 'K') return c + 273.15;
+    }
+
+    // === Build UI ===
+    function buildCatTabs() {
+        const tabs = document.getElementById('catTabs');
+        tabs.innerHTML = '';
+        for (const [key, cat] of Object.entries(categories)) {
+            const btn = document.createElement('button');
+            btn.className = 'cat-tab' + (key === activeCat ? ' active' : '');
+            btn.textContent = cat.label;
+            btn.dataset.cat = key;
+            btn.style.cssText = key === activeCat ? 'border-color:' + cat.color + ';color:' + cat.color + ';background:' + cat.color + '15;' : '';
+            btn.addEventListener('click', () => {
+                activeCat = key;
+                // Set first unit of that category as active
+                activeUnit = categories[key].units[0].id;
+                updateDialLabel();
+                buildCatTabs();
+                convert();
+            });
+            tabs.appendChild(btn);
+        }
+    }
+
+    function buildDialMenu() {
+        const menu = document.getElementById('dialMenu');
+        menu.innerHTML = '';
+        const cat = categories[activeCat];
+        // Show only current category in dial
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'dial-group-label';
+        groupLabel.textContent = cat.label;
+        menu.appendChild(groupLabel);
+
+        cat.units.forEach(u => {
+            const item = document.createElement('div');
+            item.className = 'dial-item' + (u.id === activeUnit ? ' active' : '');
+            item.innerHTML = '<span class="dial-item-symbol">' + u.symbol + '</span>' + u.name;
+            item.addEventListener('click', () => {
+                activeUnit = u.id;
+                updateDialLabel();
+                closeMenu();
+                convert();
+                buildDialMenu();
+            });
+            menu.appendChild(item);
+        });
+    }
+
+    function updateDialLabel() {
+        const cat = categories[activeCat];
+        const unit = cat.units.find(u => u.id === activeUnit);
+        document.getElementById('dialLabel').textContent = unit ? unit.symbol : '?';
+    }
+
+    // === Dial open/close ===
+    const dialBtn = document.getElementById('dialBtn');
+    const dialMenu = document.getElementById('dialMenu');
+
+    dialBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = dialMenu.classList.contains('show');
+        if (isOpen) { closeMenu(); } else { openMenu(); }
+    });
+
+    function openMenu() {
+        buildDialMenu();
+        dialMenu.classList.add('show');
+        dialBtn.classList.add('open');
+    }
+    function closeMenu() {
+        dialMenu.classList.remove('show');
+        dialBtn.classList.remove('open');
+    }
+    document.addEventListener('click', (e) => {
+        if (!dialMenu.contains(e.target) && e.target !== dialBtn) closeMenu();
+    });
+
+    // === Convert & Render ===
+    function convert() {
+        const input = document.getElementById('numInput');
+        const val = parseFloat(input.value);
+        const results = document.getElementById('results');
+
+        if (isNaN(val) || input.value === '') {
+            results.innerHTML = '<div class="empty">数値を入力してください</div>';
+            return;
+        }
+
+        const cat = categories[activeCat];
+        const fromUnit = cat.units.find(u => u.id === activeUnit);
+        if (!fromUnit) return;
+
+        let html = '';
+
+        // Convert to all units in same category
+        const rows = cat.units.map(u => {
+            let converted;
+            if (cat.base === 'C' && u.special) {
+                // Temperature
+                converted = tempConvert(val, activeUnit, u.id);
+            } else {
+                // Standard: input -> base -> target
+                const baseVal = val * fromUnit.toBase;
+                converted = baseVal / u.toBase;
+            }
+            return { unit: u, value: converted, isSource: u.id === activeUnit };
+        });
+
+        html += '<div class="result-group">';
+        html += '<div class="result-group-title" style="color:' + cat.color + '">' + cat.label + '</div>';
+        html += '<div class="result-card">';
+        rows.forEach(r => {
+            const cls = r.isSource ? ' source' : '';
+            const valCls = r.isSource ? ' source-val' : '';
+            html += '<div class="result-row' + cls + '" onclick="copyValue(\'' + formatNumber(r.value) + ' ' + r.unit.symbol + '\')">';
+            html += '<span class="result-unit">' + r.unit.name + '</span>';
+            html += '<span class="result-value' + valCls + '">' + formatNumber(r.value) + '</span>';
+            html += '<span class="result-symbol">' + r.unit.symbol + '</span>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+
+        results.innerHTML = html;
+    }
+
+    // === Format number ===
+    function formatNumber(n) {
+        if (n === 0) return '0';
+        const abs = Math.abs(n);
+        if (abs >= 1e15 || (abs < 1e-10 && abs !== 0)) {
+            return n.toExponential(6);
+        }
+        if (abs >= 1e10) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        if (abs >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
+        if (abs >= 0.001) return n.toLocaleString('en-US', { maximumFractionDigits: 8 });
+        return n.toExponential(6);
+    }
+
+    // === Copy ===
+    function copyValue(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(text + ' をコピー');
+        }).catch(() => {});
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    // === Input listener ===
+    document.getElementById('numInput').addEventListener('input', convert);
+
+    // === Init ===
+    buildCatTabs();
+    updateDialLabel();
+    convert();
+    </script>
+</body>
+</html>
