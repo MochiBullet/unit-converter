@@ -1,0 +1,24 @@
+/* mochibullet ブランド公式パーティクル背景 - 共通配置スタイル
+ *
+ * 既存コンテンツの z-index を一切触らずに canvas をコンテンツ下に置くため、
+ * body をスタッキングコンテキストに、canvas を z:-1 で配置する方式。
+ * 既存 body bg は !important で透明化し、html に黒背景を貼る。
+ */
+html {
+  background: #000 !important;
+}
+
+body {
+  background: transparent !important;
+  position: relative;
+  z-index: 0;
+}
+
+.brand-particle-bg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+}
